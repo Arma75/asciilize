@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image to ASCII Art</title>
+    <style>
+        body {
+            font-family: monospace;
+        }
+        canvas {
+            border: 1px solid black;
+        }
+        pre {
+            display: inline-block;
+            background-color: black;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <main>
+        <section>
+            <input type="file" id="fileInput" accept="image/">
+        </section>
+
+        <section>
+            <canvas id="canvas1"></canvas>
+            <canvas id="canvas2"></canvas>
+            <canvas id="canvas3"></canvas>
+        </section>
+
+        <section>
+            <pre id="resultArea"></pre>
+            <pre id="resultDetailArea"></pre>
+            <pre id="resultDetailArea1"></pre>
+            <pre id="resultDetailArea2"></pre>
+        </section>
+    </main>
+
+    <script>
+        const MAX_WIDTH = 50;
+        const CHAR_LIST = " .*IXO@";
+        function getBrightness(red, green, blue) {
+            return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+        }
+        function canvasToAscii(canvas) {
+            let asciiList = [];
+            let ctx = canvas.getContext("2d");
+            let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            let data = imageData.data;
+
+            let ascii = "";
+            for( let i = 0; i < data.length; i += 4 ) {
+                let r = data[i];
+                let g = data[i + 1];
+                let b = data[i + 2];
+
+                let brightness = getBrightness(r, g, b);
+
+                let char = CHAR_LIST[Math.round((brightness / 255) * (CHAR_LIST.length - 1))];
+                ascii += char;
+                if( (i / 4 + 1) % canvas.width == 0 ) {
+                    asciiList.push(ascii);
+                    ascii = "";
+                }
+            }
+
+            return asciiList;
+        }
+        function canvasToAsciiDetail(canvas) {
+            let asciiList = [];
+            let ctx = canvas.getContext("2d");
+            let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            let data = imageData.data;
+
+            let arr = [];
+            for( let i = 0; i < data.length; i += 4 ) {
+                let r = data[i];
+                let g = data[i + 1];
+                let b = data[i + 2];
+
+                let brightness = getBrightness(r, g, b);
+
+                let char = CHAR_LIST[Math.round((brightness / 255) * (CHAR_LIST.length - 1))];
+                arr.push({char, r, g, b, brightness});
+                if( (i / 4 + 1) % canvas.width == 0 ) {
+                    asciiList.push(arr);
+                    arr = [];
+                }
+            }
+
+            return asciiList;
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            let fileInput = document.getElementById("fileInput");
+            fileInput.addEventListener("change", e => {
+                let file = e.target.files[0];
+                if( !file ) {
+                    return;
+                }
+
+                let fileReader = new FileReader();
+                fileReader.addEventListener("load", e => {
+                    let image = new Image();
+                    image.addEventListener("load", e => {
+                        let canvas1 = document.getElementById("canvas1");
+                        canvas1.width = image.width;
+                        canvas1.height = image.height;
+                        let ctx1 = canvas1.getContext("2d");
+                        ctx1.drawImage(image, 0, 0, canvas1.width, canvas1.height);
+
+                        let canvas2 = document.getElementById("canvas2");
+                        canvas2.width = image.width;
+                        canvas2.height = image.height;
+                        let ctx2 = canvas2.getContext("2d");
+
+                        let imageData = ctx1.getImageData(0, 0, canvas1.width, canvas1.height);
+                        let data = imageData.data;
+                        for( let i = 0; i < data.length; i += 4 ) {
+                            let r = data[i];
+                            let g = data[i + 1];
+                            let b = data[i + 2];
+
+                            let brightness = getBrightness(r, g, b);
+
+                            data[i] = brightness;
+                            data[i + 1] = brightness;
+                            data[i + 2] = brightness;
+                        }
+
+                        ctx2.putImageData(imageData, 0, 0);
+
+                        let canvas3 = document.getElementById("canvas3");
+                        let scale = MAX_WIDTH / image.width;
+                        canvas3.width = image.width * scale;
+                        canvas3.height = image.height * scale * 7.83 / 15;
+                        
+                        let ctx3 = canvas3.getContext("2d");
+                        ctx3.drawImage(image, 0, 0, canvas3.width, canvas3.height);
+
+                        let asciiList = canvasToAscii(canvas3);
+                        console.log(asciiList);
+                        let resultArea = document.getElementById("resultArea");
+                        resultArea.innerText = asciiList.join("\n");
+
+                        let asciiDetailList = canvasToAsciiDetail(canvas3);
+
+                        let resultDetailArea = document.getElementById("resultDetailArea");
+                        resultDetailArea.innerHTML = "";
+                        for( let i = 0; i < asciiDetailList.length; i++ ) {
+                            for( let j = 0; j < asciiDetailList[i].length; j++ ) {
+                                let span = document.createElement("span");
+                                span.innerText = asciiDetailList[i][j].char;
+
+                                let brightness = asciiDetailList[i][j].brightness;
+                                span.style.color = `rgb(${brightness}, ${brightness}, ${brightness})`;
+                                resultDetailArea.append(span);
+                            }
+
+                            let br = document.createElement("br");
+                            resultDetailArea.append(br);
+                        }
+
+                        let resultDetailArea1 = document.getElementById("resultDetailArea1");
+                        resultDetailArea1.innerHTML = "";
+                        for( let i = 0; i < asciiDetailList.length; i++ ) {
+                            for( let j = 0; j < asciiDetailList[i].length; j++ ) {
+                                let span = document.createElement("span");
+                                span.innerText = asciiDetailList[i][j].char;
+
+                                let brightness = asciiDetailList[i][j].brightness;
+                                span.style.color = `rgb(255, 182, 9, ${brightness / 255})`;
+                                resultDetailArea1.append(span);
+                            }
+
+                            let br = document.createElement("br");
+                            resultDetailArea1.append(br);
+                        }
+
+                        let resultDetailArea2 = document.getElementById("resultDetailArea2");
+                        resultDetailArea2.innerHTML = "";
+                        for( let i = 0; i < asciiDetailList.length; i++ ) {
+                            for( let j = 0; j < asciiDetailList[i].length; j++ ) {
+                                let span = document.createElement("span");
+                                span.innerText = asciiDetailList[i][j].char;
+
+                                let r = asciiDetailList[i][j].r;
+                                let g = asciiDetailList[i][j].g;
+                                let b = asciiDetailList[i][j].b;
+                                let brightness = asciiDetailList[i][j].brightness;
+                                span.style.color = `rgb(${r}, ${g}, ${b}, ${brightness / 255})`;
+                                resultDetailArea2.append(span);
+                            }
+
+                            let br = document.createElement("br");
+                            resultDetailArea2.append(br);
+                        }
+                    });
+                    image.src = e.target.result;
+                });
+                fileReader.readAsDataURL(file);
+            });
+        });
+
+    </script>
+</body>
+</html>
