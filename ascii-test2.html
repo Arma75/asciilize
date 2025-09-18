@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image to ASCII Art</title>
+    <style>
+        body {
+            font-family: monospace;
+        }
+        canvas {
+            display: none;
+        }
+        pre {
+            display: inline-block;
+            background-color: black;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <main>
+        <section>
+            <h1>ASCIILIZER</h1>
+        </section>
+
+        <section>
+            <label for="asciiText">asciiText</label>
+            <input type="text" id="asciiText" value=" .-=*%@">
+
+            <label for="widthRange">width</label>
+            <input type="range" id="widthRange" min="10" max="150" value="100">
+
+            <input type="radio" id="monoRadio" name="colorType" checked>
+            <label for="monoRadio">mono</label>
+            <input type="radio" id="colorRadio" name="colorType">
+            <label for="colorRadio">color</label>
+
+            <input type="checkbox" id="deepCheckbox">
+            <label for="deepCheckbox">deep</label>
+
+            <input type="checkbox" id="reverseCheckbox">
+            <label for="reverseCheckbox">reverse</label>
+
+            <label for="redRange">red</label>
+            <input type="range" id="redRange" min="0" max="255" value="255">
+            <label for="greenRange">green</label>
+            <input type="range" id="greenRange" min="0" max="255" value="255">
+            <label for="blueRange">blue</label>
+            <input type="range" id="blueRange" min="0" max="255" value="255">
+        </section>
+
+        <section>
+            <input type="file" id="fileInput" accept="image/">
+        </section>
+
+        <section>
+            <canvas id="canvas1"></canvas>
+            <canvas id="canvas2"></canvas>
+            <canvas id="canvas3"></canvas>
+        </section>
+
+        <section>
+            <pre id="resultDetailArea"></pre>
+        </section>
+    </main>
+
+    <script>
+        // const MAX_WIDTH = 100;
+        let _image = null;
+        let _maxWidth = 100;
+        let _colorful = false;
+        let _red = 255;
+        let _green = 255;
+        let _blue = 255;
+        let _deep = false;
+        let _reverse = false;
+        let _asciiText = " .-=*%@";
+
+        function getBrightness(red, green, blue) {
+            return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+        }
+        function canvasToAscii(canvas) {
+            let asciiList = [];
+            let ctx = canvas.getContext("2d");
+            let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            let data = imageData.data;
+
+            let ascii = "";
+            for( let i = 0; i < data.length; i += 4 ) {
+                let r = data[i];
+                let g = data[i + 1];
+                let b = data[i + 2];
+
+                let brightness = getBrightness(r, g, b);
+
+                let char = _asciiText[Math.round((brightness / 255) * (_asciiText.length - 1))];
+                ascii += char;
+                if( (i / 4 + 1) % canvas.width == 0 ) {
+                    asciiList.push(ascii);
+                    ascii = "";
+                }
+            }
+
+            return asciiList;
+        }
+        function canvasToAsciiDetail(canvas) {
+            let asciiList = [];
+            let ctx = canvas.getContext("2d");
+            let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            let data = imageData.data;
+
+            let arr = [];
+            for( let i = 0; i < data.length; i += 4 ) {
+                let r = data[i];
+                let g = data[i + 1];
+                let b = data[i + 2];
+
+                let brightness = getBrightness(r, g, b);
+                
+                let char = _asciiText[Math.round((brightness / 255) * (_asciiText.length - 1))];
+                if( _reverse ) {
+                    char = _asciiText[_asciiText.length - 1 - Math.round((brightness / 255) * (_asciiText.length - 1))];
+                }
+                arr.push({char, r, g, b, brightness});
+                if( (i / 4 + 1) % canvas.width == 0 ) {
+                    asciiList.push(arr);
+                    arr = [];
+                }
+            }
+
+            return asciiList;
+        }
+
+        function asciilize(image, canvas) {
+            if( image == null ) {
+                return;
+            }
+
+            let scale = _maxWidth / image.width;
+            canvas.width = image.width * scale;
+            canvas.height = image.height * scale * 7.83 / 15;
+            
+            let ctx = canvas.getContext("2d");
+            ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+            
+            // let asciiList = canvasToAscii(canvas);
+            // let resultArea = document.getElementById("resultArea");
+            // resultArea.innerText = asciiList.join("\n");
+
+            let asciiDetailList = canvasToAsciiDetail(canvas);
+
+            let resultDetailArea = document.getElementById("resultDetailArea");
+            resultDetailArea.innerHTML = "";
+            for( let i = 0; i < asciiDetailList.length; i++ ) {
+                for( let j = 0; j < asciiDetailList[i].length; j++ ) {
+                    let span = document.createElement("span");
+                    span.innerText = asciiDetailList[i][j].char;
+
+                    let r = asciiDetailList[i][j].r;
+                    let g = asciiDetailList[i][j].g;
+                    let b = asciiDetailList[i][j].b;
+                    let brightness = asciiDetailList[i][j].brightness;
+
+                    let cr = _colorful? r : _red;
+                    let cg = _colorful? g : _green;
+                    let cb = _colorful? b : _blue;
+                    // let ca = _deep? brightness / 255 : 1;
+                    let ca = _deep? (_reverse? 1 - brightness / 255 : brightness / 255) : 1;
+
+                    span.style.color = `rgb(${cr}, ${cg}, ${cb}, ${ca})`;
+                    resultDetailArea.append(span);
+                }
+
+                let br = document.createElement("br");
+                resultDetailArea.append(br);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            let asciiText = document.getElementById("asciiText");
+            asciiText.addEventListener("input", e => {
+                _asciiText = e.target.value;
+                asciilize(_image, document.getElementById("canvas3"));
+            });
+
+            let widthRange = document.getElementById("widthRange");
+            widthRange.addEventListener("input", e => {
+                // console.log(e);
+                _maxWidth = e.target.value;
+                asciilize(_image, document.getElementById("canvas3"));
+            });
+
+            let monoRadio = document.getElementById("monoRadio");
+            monoRadio.addEventListener("change", e => {
+                if( e.target.checked ) {
+                    _colorful = false;
+                    asciilize(_image, document.getElementById("canvas3"));
+                }
+            });
+
+            let colorRadio = document.getElementById("colorRadio");
+            colorRadio.addEventListener("change", e => {
+                if( e.target.checked ) {
+                    _colorful = true;
+                    asciilize(_image, document.getElementById("canvas3"));
+                }
+            });
+
+            let deepCheckbox = document.getElementById("deepCheckbox");
+            deepCheckbox.addEventListener("change", e => {
+                _deep = e.target.checked;
+                asciilize(_image, document.getElementById("canvas3"));
+            });
+
+            let reverseCheckbox = document.getElementById("reverseCheckbox");
+            reverseCheckbox.addEventListener("change", e => {
+                _reverse = e.target.checked;
+                asciilize(_image, document.getElementById("canvas3"));
+            });
+
+            let redRange = document.getElementById("redRange");
+            redRange.addEventListener("input", e => {
+                _red = e.target.value;
+                asciilize(_image, document.getElementById("canvas3"));
+            });
+
+            let greenRange = document.getElementById("greenRange");
+            greenRange.addEventListener("input", e => {
+                _green = e.target.value;
+                asciilize(_image, document.getElementById("canvas3"));
+            });
+
+            let blueRange = document.getElementById("blueRange");
+            blueRange.addEventListener("input", e => {
+                _blue = e.target.value;
+                asciilize(_image, document.getElementById("canvas3"));
+            });
+
+
+            let fileInput = document.getElementById("fileInput");
+            fileInput.addEventListener("change", e => {
+                let file = e.target.files[0];
+                if( !file ) {
+                    return;
+                }
+
+                let fileReader = new FileReader();
+                fileReader.addEventListener("load", e => {
+                    let image = new Image();
+                    image.addEventListener("load", e => {
+                        let canvas1 = document.getElementById("canvas1");
+                        canvas1.width = image.width;
+                        canvas1.height = image.height;
+                        let ctx1 = canvas1.getContext("2d");
+                        ctx1.drawImage(image, 0, 0, canvas1.width, canvas1.height);
+
+                        let canvas2 = document.getElementById("canvas2");
+                        canvas2.width = image.width;
+                        canvas2.height = image.height;
+                        let ctx2 = canvas2.getContext("2d");
+
+                        let imageData = ctx1.getImageData(0, 0, canvas1.width, canvas1.height);
+                        let data = imageData.data;
+                        for( let i = 0; i < data.length; i += 4 ) {
+                            let r = data[i];
+                            let g = data[i + 1];
+                            let b = data[i + 2];
+
+                            let brightness = getBrightness(r, g, b);
+
+                            data[i] = brightness;
+                            data[i + 1] = brightness;
+                            data[i + 2] = brightness;
+                        }
+
+                        ctx2.putImageData(imageData, 0, 0);
+
+                        _image = image;
+                        let canvas3 = document.getElementById("canvas3");
+                        asciilize(image, canvas3);
+                        // let scale = _maxWidth / image.width;
+                        // canvas3.width = image.width * scale;
+                        // canvas3.height = image.height * scale * 7.83 / 15;
+                        
+                        // let ctx3 = canvas3.getContext("2d");
+                        // ctx3.drawImage(image, 0, 0, canvas3.width, canvas3.height);
+
+                        // let asciiList = canvasToAscii(canvas3);
+                        // console.log(asciiList);
+                        // let resultArea = document.getElementById("resultArea");
+                        // resultArea.innerText = asciiList.join("\n");
+
+                        // let asciiDetailList = canvasToAsciiDetail(canvas3);
+
+                        // let resultDetailArea = document.getElementById("resultDetailArea");
+                        // resultDetailArea.innerHTML = "";
+                        // for( let i = 0; i < asciiDetailList.length; i++ ) {
+                        //     for( let j = 0; j < asciiDetailList[i].length; j++ ) {
+                        //         let span = document.createElement("span");
+                        //         span.innerText = asciiDetailList[i][j].char;
+
+                        //         let brightness = asciiDetailList[i][j].brightness;
+                        //         span.style.color = `rgb(${brightness}, ${brightness}, ${brightness})`;
+                        //         resultDetailArea.append(span);
+                        //     }
+
+                        //     let br = document.createElement("br");
+                        //     resultDetailArea.append(br);
+                        // }
+
+                        // let resultDetailArea1 = document.getElementById("resultDetailArea1");
+                        // resultDetailArea1.innerHTML = "";
+                        // for( let i = 0; i < asciiDetailList.length; i++ ) {
+                        //     for( let j = 0; j < asciiDetailList[i].length; j++ ) {
+                        //         let span = document.createElement("span");
+                        //         span.innerText = asciiDetailList[i][j].char;
+
+                        //         let brightness = asciiDetailList[i][j].brightness;
+                        //         span.style.color = `rgb(255, 182, 9, ${brightness / 255})`;
+                        //         resultDetailArea1.append(span);
+                        //     }
+
+                        //     let br = document.createElement("br");
+                        //     resultDetailArea1.append(br);
+                        // }
+
+                        // let resultDetailArea2 = document.getElementById("resultDetailArea2");
+                        // resultDetailArea2.innerHTML = "";
+                        // for( let i = 0; i < asciiDetailList.length; i++ ) {
+                        //     for( let j = 0; j < asciiDetailList[i].length; j++ ) {
+                        //         let span = document.createElement("span");
+                        //         span.innerText = asciiDetailList[i][j].char;
+
+                        //         let r = asciiDetailList[i][j].r;
+                        //         let g = asciiDetailList[i][j].g;
+                        //         let b = asciiDetailList[i][j].b;
+                        //         let brightness = asciiDetailList[i][j].brightness;
+                        //         span.style.color = `rgb(${r}, ${g}, ${b}, ${brightness / 255})`;
+                        //         resultDetailArea2.append(span);
+                        //     }
+
+                        //     let br = document.createElement("br");
+                        //     resultDetailArea2.append(br);
+                        // }
+
+                        // let resultDetailArea3 = document.getElementById("resultDetailArea3");
+                        // resultDetailArea3.innerHTML = "";
+                        // for( let i = 0; i < asciiDetailList.length; i++ ) {
+                        //     for( let j = 0; j < asciiDetailList[i].length; j++ ) {
+                        //         let span = document.createElement("span");
+                        //         span.innerText = asciiDetailList[i][j].char;
+
+                        //         let r = asciiDetailList[i][j].r;
+                        //         let g = asciiDetailList[i][j].g;
+                        //         let b = asciiDetailList[i][j].b;
+                        //         span.style.color = `rgb(${r}, ${g}, ${b})`;
+                        //         resultDetailArea3.append(span);
+                        //     }
+
+                        //     let br = document.createElement("br");
+                        //     resultDetailArea3.append(br);
+                        // }
+                    });
+                    image.src = e.target.result;
+                });
+                fileReader.readAsDataURL(file);
+            });
+        });
+
+    </script>
+</body>
+</html>
