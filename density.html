@@ -6,9 +6,8 @@
     <title>밀도 계산</title>
 
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Nanum+Gothic+Coding&display=swap');
         body {
-            font-family: "Nanum Gothic Coding", monospace;
+            font-family: monospace;
         }
         canvas {
             border: 1px solid black;
@@ -22,7 +21,7 @@
         <section>
             <article>
                 <label for="charInput">글자를 입력하세요 : </label>
-                <input type="text" id="charInput" maxlength="1" placeholder="한 글자">
+                <input type="text" id="charInput">
             </article>
             <button id="calculateBtn">밀도 계산하기</button>
         </section>
@@ -97,19 +96,32 @@
 
             calculateBtn.addEventListener('click', () => {
                 let font = {
-                    name: "Nanum Gothic Coding",//"monospace";
+                    name: "monospace",
                     size: 80
                 };
-                let result = getDensity(canvas, font, charInput.value);
 
-                resultText.textContent = `${result}%`;
+                let set = new Set();
+                let str = charInput.value.split("");
+                for( let char of str ) {
+                    set.add(char);
+                }
+
+                let map = [];
+                for( let char of set ) {
+                    let result = getDensity(canvas, font, char);
+                    map.push({char, density: result});
+                }
+
+                map.sort((a, b) => b.density - a.density);
+                resultText.textContent = map.reduce((a, b) => a + b.char, "");
             });
 
-            let list = ['ㄱ', 'ㄴ', 'ㄷ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅅ', 'ㅇ', 'ㅈ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ', 'ㅏ', 'ㅑ', 'ㅓ', 'ㅕ', 'ㅗ', 'ㅛ', 'ㅜ', 'ㅠ', 'ㅡ', 'ㅣ', '.', '!', '?', ' '];
+            
+            let list = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789`~!@#$%^&*()-=_+[]{};:',./<>?".split("");
             let map = [];
             for( var i = 0; i < list.length; i++ ) {
                 let font = {
-                    name: "Nanum Gothic Coding",//"monospace";
+                    name: "VT323",//"monospace";
                     size: 80
                 };
                 let result = getDensity(canvas, font, list[i]);
